@@ -80,14 +80,27 @@ export default function History() {
 
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100 px-4 py-8">
-      <div className="max-w-xl mx-auto">
-        <Link
-          href="/"
-          className="text-sky-400 underline text-sm block mb-4"
-        >
-          ← ホームに戻る
-        </Link>
+      <header className="bg-slate-800 border-b border-slate-700">
+        <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="text-lg font-bold">Gym Log</div>
+          <nav className="space-x-4 text-sm">
+            <Link
+              href="/"
+              className="hover:text-sky-400"
+            >
+              Home
+            </Link>
+            <Link
+              href="/history"
+              className="hover:text-sky-400"
+            >
+              History
+            </Link>
+          </nav>
+        </div>
+      </header>
 
+      <div className="max-w-xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-center">
           過去のトレーニング履歴
         </h1>
@@ -145,6 +158,12 @@ export default function History() {
             ))}
           </div>
         )}
+      <Link
+          href="/"
+          className="text-sky-400 underline text-sm block mb-4"
+        >
+          ← ホームに戻る
+      </Link>
       </div>
     </main>
   );

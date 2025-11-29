@@ -81,6 +81,26 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
+      <header className="bg-slate-800 border-b border-slate-700">
+        <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="text-lg font-bold">Gym Log</div>
+          <nav className="space-x-4 text-sm">
+            <Link
+              href="/"
+              className="hover:text-sky-400"
+            >
+              Home
+            </Link>
+            <Link
+              href="/history"
+              className="hover:text-sky-400"
+            >
+              History
+            </Link>
+          </nav>
+        </div>
+      </header>
+
       <div className="max-w-xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6 text-center">
           今日の筋トレ記録（Gym Log）
