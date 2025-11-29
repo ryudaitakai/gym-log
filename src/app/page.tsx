@@ -15,6 +15,9 @@ type TrainingSet = {
 };
 
 export default function Home() {
+  const [date, setDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [exercise, setExercise] = useState("");
   const [weight, setWeight] = useState<number | "">("");
   const [reps, setReps] = useState<number | "">("");
@@ -23,13 +26,16 @@ export default function Home() {
   const [nextId, setNextId] = useState(1);
 
     const handleAddSet = async () => {
+      if (!date) {
+        alert("日付を入力してください");
+        return;
+      }
     if (!exercise || weight === "" || reps === "" || setNumber === "") {
       alert("種目名・重量・回数・セット数を全部入力してね！");
       return;
     }
 
-    // 今日の日付を "YYYY-MM-DD" 形式で作成
-    const today = new Date().toISOString().slice(0, 10);
+    const currentDate = date;
 
     // ① まずローカルの state に追加（画面の即時反映用）
     const newSet: TrainingSet = {
@@ -51,7 +57,7 @@ export default function Home() {
     // ② Supabase に INSERT
     const { error } = await supabase.from("workout_entries").insert([
       {
-        date: today,
+        date: date,
         exercise: exercise,
         weight: Number(weight),
         reps: Number(reps),
@@ -92,6 +98,16 @@ export default function Home() {
                 placeholder="例: ベンチプレス"
                 value={exercise}
                 onChange={(e) => setExercise(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1">日付</label>
+              <input
+                type="date"
+                className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
               />
             </div>
 
