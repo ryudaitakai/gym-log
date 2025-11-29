@@ -1,69 +1,162 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
+
+import { useState } from "react";
+
+type TrainingSet = {
+  id: number;
+  exercise: string;
+  weight: number;
+  reps: number;
+  setNumber: number;
+};
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file. Hello world!
-          </h1>
-          <h1 className="text-3xl font-bold text-center mt-10">
-            Gym Log アプリ 開発スタート！
-          </h1>
+  const [exercise, setExercise] = useState("");
+  const [weight, setWeight] = useState<number | "">("");
+  const [reps, setReps] = useState<number | "">("");
+  const [setNumber, setSetNumber] = useState<number | "">("");
+  const [sets, setSets] = useState<TrainingSet[]>([]);
+  const [nextId, setNextId] = useState(1);
 
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+  const handleAddSet = () => {
+    if (!exercise || weight === "" || reps === "" || setNumber === "") {
+      alert("種目名・重量・回数・セット数を全部入力してね！");
+      return;
+    }
+
+    const newSet: TrainingSet = {
+      id: nextId,
+      exercise,
+      weight: Number(weight),
+      reps: Number(reps),
+      setNumber: Number(setNumber),
+    };
+
+    setSets((prev) => [...prev, newSet]);
+    setNextId((prev) => prev + 1);
+
+    // 入力欄リセット
+    setWeight("");
+    setReps("");
+    setSetNumber("");
+  };
+
+  const totalVolume = sets.reduce(
+    (sum, s) => sum + s.weight * s.reps,
+    0
+  );
+
+  return (
+    <main className="min-h-screen bg-slate-900 text-slate-100">
+      <div className="max-w-xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          今日の筋トレ記録（Gym Log）
+        </h1>
+
+        {/* 入力フォーム */}
+        <section className="mb-8 bg-slate-800 rounded-xl p-4 shadow">
+          <h2 className="text-xl font-semibold mb-3">セットを追加</h2>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm mb-1">種目名</label>
+              <input
+                className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                placeholder="例: ベンチプレス"
+                value={exercise}
+                onChange={(e) => setExercise(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm mb-1">重量 (kg)</label>
+                <input
+                  type="number"
+                  className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                  value={weight}
+                  onChange={(e) =>
+                    setWeight(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">回数</label>
+                <input
+                  type="number"
+                  className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                  value={reps}
+                  onChange={(e) =>
+                    setReps(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">セット数</label>
+                <input
+                  type="number"
+                  className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                  value={setNumber}
+                  onChange={(e) =>
+                    setSetNumber(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <button
+              className="w-full mt-2 py-2 rounded-md bg-sky-500 hover:bg-sky-400 font-semibold"
+              onClick={handleAddSet}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              セットを追加
+            </button>
+          </div>
+        </section>
+
+        {/* 合計ボリューム */}
+        <section className="mb-4">
+          <div className="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
+            <span className="font-semibold">今日の総ボリューム</span>
+            <span className="text-2xl font-bold">{totalVolume} kg</span>
+          </div>
+        </section>
+
+        {/* 追加済みセット一覧 */}
+        <section>
+          <h2 className="text-xl font-semibold mb-3">記録したセット</h2>
+          {sets.length === 0 ? (
+            <p className="text-slate-400 text-sm">
+              まだセットは追加されていません。
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {sets.map((s) => (
+                <li
+                  key={s.id}
+                  className="bg-slate-800 rounded-lg px-3 py-2 flex justify-between text-sm"
+                >
+                  <div>
+                    <div className="font-semibold">{s.exercise}</div>
+                    <div className="text-slate-300">
+                      {s.weight}kg × {s.reps}回（{s.setNumber}セット目）
+                    </div>
+                  </div>
+                  <div className="text-right text-slate-300">
+                    {s.weight * s.reps} kg
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }
