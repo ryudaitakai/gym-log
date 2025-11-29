@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+
 
 type TrainingSet = {
   id: number;
@@ -120,42 +122,10 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 合計ボリューム */}
-        <section className="mb-4">
-          <div className="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-            <span className="font-semibold">今日の総ボリューム</span>
-            <span className="text-2xl font-bold">{totalVolume} kg</span>
-          </div>
-        </section>
+        <Link href="/history" className="underline text-sky-400 block text-center mt-6">
+          過去の履歴を見る
+        </Link>
 
-        {/* 追加済みセット一覧 */}
-        <section>
-          <h2 className="text-xl font-semibold mb-3">記録したセット</h2>
-          {sets.length === 0 ? (
-            <p className="text-slate-400 text-sm">
-              まだセットは追加されていません。
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {sets.map((s) => (
-                <li
-                  key={s.id}
-                  className="bg-slate-800 rounded-lg px-3 py-2 flex justify-between text-sm"
-                >
-                  <div>
-                    <div className="font-semibold">{s.exercise}</div>
-                    <div className="text-slate-300">
-                      {s.weight}kg × {s.reps}回（{s.setNumber}セット目）
-                    </div>
-                  </div>
-                  <div className="text-right text-slate-300">
-                    {s.weight * s.reps} kg
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       </div>
     </main>
   );
