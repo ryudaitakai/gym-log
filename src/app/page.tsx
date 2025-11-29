@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 
 type TrainingSet = {
@@ -21,12 +22,16 @@ export default function Home() {
   const [sets, setSets] = useState<TrainingSet[]>([]);
   const [nextId, setNextId] = useState(1);
 
-  const handleAddSet = () => {
+    const handleAddSet = async () => {
     if (!exercise || weight === "" || reps === "" || setNumber === "") {
       alert("種目名・重量・回数・セット数を全部入力してね！");
       return;
     }
 
+    // 今日の日付を "YYYY-MM-DD" 形式で作成
+    const today = new Date().toISOString().slice(0, 10);
+
+    // ① まずローカルの state に追加（画面の即時反映用）
     const newSet: TrainingSet = {
       id: nextId,
       exercise,
@@ -38,11 +43,30 @@ export default function Home() {
     setSets((prev) => [...prev, newSet]);
     setNextId((prev) => prev + 1);
 
-    // 入力欄リセット
+    // 入力欄リセット（UX的に先にリセットしちゃう）
     setWeight("");
     setReps("");
     setSetNumber("");
+
+    // ② Supabase に INSERT
+    const { error } = await supabase.from("workout_entries").insert([
+      {
+        date: today,
+        exercise: exercise,
+        weight: Number(weight),
+        reps: Number(reps),
+        set_number: Number(setNumber),
+        // user_id は今は null のままでOK（あとで認証つけるなら使う）
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("DBへの保存に失敗しました… コンソールを確認してください");
+      // ここで本当はローカルの state からも取り消したいが、今回は簡略化
+    }
   };
+
 
   const totalVolume = sets.reduce(
     (sum, s) => sum + s.weight * s.reps,
