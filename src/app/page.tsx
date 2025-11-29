@@ -30,48 +30,48 @@ export default function Home() {
         alert("日付を入力してください");
         return;
       }
-    if (!exercise || weight === "" || reps === "" || setNumber === "") {
-      alert("種目名・重量・回数・セット数を全部入力してね！");
-      return;
-    }
+      if (!exercise || weight === "" || reps === "" || setNumber === "") {
+        alert("種目名・重量・回数・セット数を全部入力してね！");
+        return;
+      }
 
-    const currentDate = date;
+      const currentDate = date;
 
-    // ① まずローカルの state に追加（画面の即時反映用）
-    const newSet: TrainingSet = {
-      id: nextId,
-      exercise,
-      weight: Number(weight),
-      reps: Number(reps),
-      setNumber: Number(setNumber),
-    };
-
-    setSets((prev) => [...prev, newSet]);
-    setNextId((prev) => prev + 1);
-
-    // 入力欄リセット（UX的に先にリセットしちゃう）
-    setWeight("");
-    setReps("");
-    setSetNumber("");
-
-    // ② Supabase に INSERT
-    const { error } = await supabase.from("workout_entries").insert([
-      {
-        date: date,
-        exercise: exercise,
+      // ① まずローカルの state に追加（画面の即時反映用）
+      const newSet: TrainingSet = {
+        id: nextId,
+        exercise,
         weight: Number(weight),
         reps: Number(reps),
-        set_number: Number(setNumber),
-        // user_id は今は null のままでOK（あとで認証つけるなら使う）
-      },
-    ]);
+        setNumber: Number(setNumber),
+      };
 
-    if (error) {
-      console.error(error);
-      alert("DBへの保存に失敗しました… コンソールを確認してください");
-      // ここで本当はローカルの state からも取り消したいが、今回は簡略化
-    }
-  };
+      setSets((prev) => [...prev, newSet]);
+      setNextId((prev) => prev + 1);
+
+      // 入力欄リセット（UX的に先にリセットしちゃう）
+      setWeight("");
+      setReps("");
+      setSetNumber("");
+
+      // ② Supabase に INSERT
+      const { error } = await supabase.from("workout_entries").insert([
+        {
+          date: date,
+          exercise: exercise,
+          weight: Number(weight),
+          reps: Number(reps),
+          set_number: Number(setNumber),
+          // user_id は今は null のままでOK（あとで認証つけるなら使う）
+        },
+      ]);
+
+      if (error) {
+        console.error(error);
+        alert("DBへの保存に失敗しました… コンソールを確認してください");
+        // ここで本当はローカルの state からも取り消したいが、今回は簡略化
+      }
+    };
 
 
   const totalVolume = sets.reduce(
