@@ -204,14 +204,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 今日の総ボリューム */}
-        <section className="mb-6">
-          <div className="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-            <span className="font-semibold">今日の総ボリューム</span>
-            <span className="text-2xl font-bold">{todayTotalVolume} kg</span>
-          </div>
-        </section>
-
         {/* 今日の記録一覧 */}
         <section>
           <h2 className="text-xl font-semibold mb-3">今日の記録</h2>
