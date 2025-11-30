@@ -165,6 +165,16 @@ export default function Home() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm mb-1">日付</label>
+              <input
+                type="date"
+                className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600 focus:outline-none focus:ring focus:border-sky-500"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <input
                 type="number"
