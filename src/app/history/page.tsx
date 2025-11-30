@@ -45,7 +45,7 @@ export default function History() {
 
   useEffect(() => {
     const fetchEntries = async () => {
-      // まずログインチェック
+      // ログインチェック
       const {
         data: { user },
         error,
@@ -86,6 +86,12 @@ export default function History() {
 
     fetchEntries();
   }, [router]);
+
+  // 🔓 ログアウト
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const groupByDate = (entries: WorkoutEntry[]): DailySummary[] => {
     const map = new Map<string, WorkoutEntry[]>();
@@ -160,7 +166,7 @@ export default function History() {
       .from("workout_entries")
       .update(updated)
       .eq("id", id)
-      .eq("user_id", userId); // 念のため自分のデータだけ更新
+      .eq("user_id", userId);
 
     setSavingId(null);
 
@@ -192,7 +198,7 @@ export default function History() {
       .from("workout_entries")
       .delete()
       .eq("id", entry.id)
-      .eq("user_id", userId); // 自分のデータに限定
+      .eq("user_id", userId);
 
     setDeletingId(null);
 
@@ -238,6 +244,12 @@ export default function History() {
               </Link>
               <span className="text-sky-400">History</span>
             </nav>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-slate-300 hover:text-slate-100 border border-slate-600 rounded px-2 py-1 ml-1"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </header>

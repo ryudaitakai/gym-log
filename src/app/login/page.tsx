@@ -23,6 +23,13 @@ export default function LoginPage() {
       return;
     }
 
+    // 必須要件チェック（必要に応じて調整してOK）
+    // 例: パスワードは 6 文字以上
+    if (mode === "signup" && password.length < 6) {
+      setMessage("パスワードは 6 文字以上で入力してください。");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -32,6 +39,8 @@ export default function LoginPage() {
           password,
         });
         if (error) throw error;
+
+        // 今回はメール確認なしでそのままログイン扱いの運用想定
         setMessage("サインアップに成功しました。ログイン中です。");
         router.push("/");
       } else {
@@ -40,6 +49,7 @@ export default function LoginPage() {
           password,
         });
         if (error) throw error;
+
         router.push("/");
       }
     } catch (err: any) {
@@ -82,6 +92,25 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* サインアップ時だけ注意書きを表示 */}
+          {mode === "signup" && (
+            <div className="text-xs text-slate-200 bg-slate-700/60 border border-slate-600 rounded-md px-3 py-2 space-y-1">
+              <p className="font-semibold">新規登録時の入力ルール</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>パスワードは 6 文字以上で入力してください。</li>
+                <li>メールアドレス形式（@ を含む）で入力してください。</li>
+              </ul>
+              <p className="mt-1 text-[11px] text-slate-300">
+                ※ このアプリは学習・検証用のため、
+                <span className="font-semibold">
+                  実在しないメールアドレスでも登録できます
+                </span>
+                。  
+                本物のアドレスを使いたくない場合は、適当な文字列でも問題ありません。
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -91,7 +120,7 @@ export default function LoginPage() {
               ? "処理中..."
               : mode === "login"
               ? "ログイン"
-              : "サインアップ"}
+              : "新規登録"}
           </button>
         </form>
 

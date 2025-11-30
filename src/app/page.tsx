@@ -55,6 +55,12 @@ export default function Home() {
     checkAuth();
   }, [router]);
 
+  // 🔓 ログアウト
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   const handleAddSet = async () => {
     if (!userId) {
       alert("ログイン情報が取得できませんでした。もう一度ログインしてください。");
@@ -76,7 +82,7 @@ export default function Home() {
     const currentReps = Number(reps);
     const currentSetNumber = Number(setNumber);
 
-    // ① まずローカルの state に追加（画面の即時反映用）
+    // ① 画面側の state に追加
     const newSet: TrainingSet = {
       id: nextId,
       exercise,
@@ -108,7 +114,6 @@ export default function Home() {
     if (error) {
       console.error(error);
       alert("DBへの保存に失敗しました… コンソールを確認してください");
-      // TODO: 本当はローカル state からも取り消したほうがきれい
     }
   };
 
@@ -146,6 +151,13 @@ export default function Home() {
                 History
               </Link>
             </nav>
+
+            <button
+              onClick={handleLogout}
+              className="text-xs text-slate-300 hover:text-slate-100 border border-slate-600 rounded px-2 py-1 ml-1"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </header>
