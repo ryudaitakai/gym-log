@@ -2,9 +2,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+
+import {
+  fetchEntriesByUser,
+  updateWorkoutEntry,
+  deleteWorkoutEntry,
+} from "@/features/workout/services";
+import { groupByDate } from "@/features/workout/utils";
+import { WorkoutEntry, DailySummary } from "@/features/workout/types";
+
 import {
   LineChart,
   Line,
@@ -14,21 +23,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-
-type WorkoutEntry = {
-  id: string;
-  date: string;
-  exercise: string;
-  weight: number;
-  reps: number;
-  set_number: number;
-};
-
-type DailySummary = {
-  date: string;
-  totalVolume: number;
-  sets: WorkoutEntry[];
-};
 
 export default function History() {
   const router = useRouter();
@@ -53,8 +47,8 @@ export default function History() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchEntries = async () => {
-      // ログインチェック
+    const init = async () => {
+      // 認証チェック（UI層）
       const {
         data: { user },
         error,
@@ -72,28 +66,22 @@ export default function History() {
       setUserId(user.id);
       setUserEmail(user.email ?? null);
 
-      // ログインユーザーのデータだけを取得
-      const { data, error: selectError } = await supabase
-        .from("workout_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date", { ascending: false });
+      try {
+        // アプリケーション層：ユーザーのエントリ取得
+        const userEntries = await fetchEntriesByUser(user.id);
+        setEntries(userEntries);
 
-      if (selectError) {
-        console.error(selectError);
+        // ドメイン層：日別サマリに変換
+        setDailySummaries(groupByDate(userEntries));
+      } catch (e) {
+        console.error(e);
+      } finally {
         setLoading(false);
         setAuthChecking(false);
-        return;
       }
-
-      const typed = (data ?? []) as WorkoutEntry[];
-      setEntries(typed);
-      setDailySummaries(groupByDate(typed));
-      setLoading(false);
-      setAuthChecking(false);
     };
 
-    fetchEntries();
+    init();
   }, [router]);
 
   // 🔓 ログアウト
@@ -101,44 +89,6 @@ export default function History() {
     await supabase.auth.signOut();
     router.push("/login");
   };
-
-  const groupByDate = (entries: WorkoutEntry[]): DailySummary[] => {
-    const map = new Map<string, WorkoutEntry[]>();
-
-    for (const e of entries) {
-      if (!map.has(e.date)) map.set(e.date, []);
-      map.get(e.date)!.push(e);
-    }
-
-    const summaries: DailySummary[] = [];
-
-    for (const [date, sets] of map.entries()) {
-      const totalVolume = sets.reduce(
-        (sum, s) => sum + s.weight * s.reps,
-        0
-      );
-
-      summaries.push({
-        date,
-        totalVolume,
-        sets,
-      });
-    }
-
-    // 日付の新しい順にソート（グラフでは後で反転する）
-    summaries.sort((a, b) => (a.date < b.date ? 1 : -1));
-
-    return summaries;
-  };
-
-  // グラフ用データ（日付の古い順に並び替え）
-  const chartData = [...dailySummaries]
-    .slice()
-    .sort((a, b) => (a.date > b.date ? 1 : -1))
-    .map((day) => ({
-      date: day.date,
-      totalVolume: day.totalVolume,
-    }));
 
   // 編集開始
   const startEdit = (entry: WorkoutEntry) => {
@@ -158,9 +108,9 @@ export default function History() {
     setEditSetNumber("");
   };
 
-  // 編集保存
+  // 編集保存（サービス層経由）
   const saveEdit = async () => {
-    if (!editingId) return;
+    if (!editingId || !userId) return;
     if (
       !editExercise ||
       editWeight === "" ||
@@ -174,38 +124,45 @@ export default function History() {
     const id = editingId;
     setSavingId(id);
 
-    const updated = {
+    const payload = {
+      userId,
+      id,
       exercise: editExercise,
       weight: Number(editWeight),
       reps: Number(editReps),
-      set_number: Number(editSetNumber),
+      setNumber: Number(editSetNumber),
     };
 
-    const { error } = await supabase
-      .from("workout_entries")
-      .update(updated)
-      .eq("id", id)
-      .eq("user_id", userId);
+    try {
+      await updateWorkoutEntry(payload);
 
-    setSavingId(null);
+      const updatedEntries = entries.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              exercise: payload.exercise,
+              weight: payload.weight,
+              reps: payload.reps,
+              set_number: payload.setNumber,
+            }
+          : e
+      );
 
-    if (error) {
+      setEntries(updatedEntries);
+      setDailySummaries(groupByDate(updatedEntries));
+      cancelEdit();
+    } catch (error) {
       console.error(error);
       alert("更新に失敗しました。");
-      return;
+    } finally {
+      setSavingId(null);
     }
-
-    const newEntries = entries.map((e) =>
-      e.id === id ? { ...e, ...updated } : e
-    );
-
-    setEntries(newEntries);
-    setDailySummaries(groupByDate(newEntries));
-    cancelEdit();
   };
 
-  // 削除処理
-  const deleteEntry = async (entry: WorkoutEntry) => {
+  // 削除（サービス層経由）
+  const handleDelete = async (entry: WorkoutEntry) => {
+    if (!userId) return;
+
     const ok = window.confirm(
       `本当に削除しますか？\n${entry.date} ${entry.exercise} ${entry.weight}kg × ${entry.reps}回`
     );
@@ -213,28 +170,32 @@ export default function History() {
 
     setDeletingId(entry.id);
 
-    const { error } = await supabase
-      .from("workout_entries")
-      .delete()
-      .eq("id", entry.id)
-      .eq("user_id", userId);
+    try {
+      await deleteWorkoutEntry({ userId, id: entry.id });
 
-    setDeletingId(null);
+      const updatedEntries = entries.filter((e) => e.id !== entry.id);
+      setEntries(updatedEntries);
+      setDailySummaries(groupByDate(updatedEntries));
 
-    if (error) {
+      if (editingId === entry.id) {
+        cancelEdit();
+      }
+    } catch (error) {
       console.error(error);
       alert("削除に失敗しました。");
-      return;
-    }
-
-    const newEntries = entries.filter((e) => e.id !== entry.id);
-    setEntries(newEntries);
-    setDailySummaries(groupByDate(newEntries));
-
-    if (editingId === entry.id) {
-      cancelEdit();
+    } finally {
+      setDeletingId(null);
     }
   };
+
+  // 📈 グラフ用データ（古い日付 → 新しい日付）
+  const chartData = [...dailySummaries]
+    .slice()
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .map((day) => ({
+      date: day.date,
+      totalVolume: day.totalVolume,
+    }));
 
   // 認証確認中
   if (authChecking) {
@@ -281,7 +242,9 @@ export default function History() {
 
         {/* 📈 日別総ボリュームグラフ */}
         <section className="mb-6 bg-slate-800 rounded-xl p-4 shadow">
-          <h2 className="text-lg font-semibold mb-3">日別総ボリュームの推移</h2>
+          <h2 className="text-lg font-semibold mb-3">
+            日別総ボリュームの推移
+          </h2>
           {chartData.length === 0 ? (
             <p className="text-slate-400 text-sm">
               まだグラフを表示するためのデータがありません。
@@ -348,7 +311,6 @@ export default function History() {
                   {day.sets.map((s) => {
                     const isEditing = s.id === editingId;
 
-                    // 編集モード
                     if (isEditing) {
                       return (
                         <li
@@ -438,7 +400,6 @@ export default function History() {
                       );
                     }
 
-                    // 通常表示モード
                     return (
                       <li
                         key={s.id}
@@ -465,7 +426,7 @@ export default function History() {
                             </button>
 
                             <button
-                              onClick={() => deleteEntry(s)}
+                              onClick={() => handleDelete(s)}
                               disabled={deletingId === s.id}
                               className="text-red-400 hover:text-red-300 underline disabled:opacity-60"
                             >

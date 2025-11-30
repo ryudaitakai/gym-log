@@ -6,14 +6,11 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
-type WorkoutEntry = {
-  id: string;
-  date: string;
-  exercise: string;
-  weight: number;
-  reps: number;
-  set_number: number;
-};
+import { WorkoutEntry } from "@/features/workout/types";
+import {
+  addWorkoutEntry,
+  fetchTodayEntries,
+} from "@/features/workout/services";
 
 export default function Home() {
   const [date, setDate] = useState<string>(() =>
@@ -34,7 +31,7 @@ export default function Home() {
   const [todayEntries, setTodayEntries] = useState<WorkoutEntry[]>([]);
   const [loadingToday, setLoadingToday] = useState(true);
 
-  // 🔐 認証チェック → TODAYの記録取得
+  // 🔐 認証チェック → 今日の記録取得
   useEffect(() => {
     const init = async () => {
       const {
@@ -56,57 +53,54 @@ export default function Home() {
     init();
   }, [router]);
 
-  // 今日の記録を Supabase から取得
+  // 今日の記録をサービス層経由で取得
   const loadTodayEntries = async (uid: string) => {
-    const today = new Date().toISOString().slice(0, 10);
     setLoadingToday(true);
-
-    const { data, error } = await supabase
-      .from("workout_entries")
-      .select("*")
-      .eq("user_id", uid)
-      .eq("date", today)
-      .order("set_number", { ascending: true });
-
-    if (error) console.error(error);
-
-    setTodayEntries((data ?? []) as WorkoutEntry[]);
-    setLoadingToday(false);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const entries = await fetchTodayEntries(uid, today);
+      setTodayEntries(entries);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingToday(false);
+    }
   };
 
-  // セット追加
+  // セット追加（サービス層経由）
   const handleAddSet = async () => {
-    if (!userId) return router.push("/login");
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
 
     if (!exercise || weight === "" || reps === "" || setNumber === "") {
       alert("すべての項目を入力してね！");
       return;
     }
 
-    const entry = {
-      user_id: userId,
-      date,
-      exercise,
-      weight: Number(weight),
-      reps: Number(reps),
-      set_number: Number(setNumber),
-    };
+    try {
+      await addWorkoutEntry({
+        userId,
+        date,
+        exercise,
+        weight: Number(weight),
+        reps: Number(reps),
+        setNumber: Number(setNumber),
+      });
 
-    const { error } = await supabase.from("workout_entries").insert([entry]);
+      // 入力リセット
+      setExercise("");
+      setWeight("");
+      setReps("");
+      setSetNumber("");
 
-    if (error) {
+      // 今日の記録を再取得
+      await loadTodayEntries(userId);
+    } catch (e) {
+      console.error(e);
       alert("保存に失敗しました");
-      return;
     }
-
-    // 入力リセット
-    setExercise("");
-    setWeight("");
-    setReps("");
-    setSetNumber("");
-
-    // 今日の記録を再取得
-    await loadTodayEntries(userId);
   };
 
   // 今日の総ボリューム
@@ -130,10 +124,16 @@ export default function Home() {
         <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="text-lg font-bold">Gym Log</div>
           <div className="flex items-center gap-3">
-            {userEmail && <span className="text-xs text-slate-300">{userEmail}</span>}
+            {userEmail && (
+              <span className="text-xs text-slate-300">{userEmail}</span>
+            )}
             <nav className="space-x-4 text-sm">
-              <Link href="/" className="text-sky-400">Home</Link>
-              <Link href="/history" className="hover:text-sky-400">History</Link>
+              <Link href="/" className="text-sky-400">
+                Home
+              </Link>
+              <Link href="/history" className="hover:text-sky-400">
+                History
+              </Link>
             </nav>
             <button
               onClick={async () => {
@@ -182,7 +182,9 @@ export default function Home() {
                 className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600"
                 value={weight}
                 onChange={(e) =>
-                  setWeight(e.target.value === "" ? "" : Number(e.target.value))
+                  setWeight(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
                 }
               />
               <input
@@ -200,7 +202,9 @@ export default function Home() {
                 className="w-full rounded-md px-3 py-2 bg-slate-700 border border-slate-600"
                 value={setNumber}
                 onChange={(e) =>
-                  setSetNumber(e.target.value === "" ? "" : Number(e.target.value))
+                  setSetNumber(
+                    e.target.value === "" ? "" : Number(e.target.value)
+                  )
                 }
               />
             </div>
