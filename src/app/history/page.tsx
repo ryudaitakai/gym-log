@@ -5,6 +5,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 type WorkoutEntry = {
   id: string;
@@ -116,10 +125,20 @@ export default function History() {
       });
     }
 
+    // 日付の新しい順にソート（グラフでは後で反転する）
     summaries.sort((a, b) => (a.date < b.date ? 1 : -1));
 
     return summaries;
   };
+
+  // グラフ用データ（日付の古い順に並び替え）
+  const chartData = [...dailySummaries]
+    .slice()
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .map((day) => ({
+      date: day.date,
+      totalVolume: day.totalVolume,
+    }));
 
   // 編集開始
   const startEdit = (entry: WorkoutEntry) => {
@@ -256,9 +275,49 @@ export default function History() {
 
       {/* Content */}
       <div className="max-w-xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">
+        <h1 className="text-3xl font-bold mb-4 text-center">
           過去のトレーニング履歴
         </h1>
+
+        {/* 📈 日別総ボリュームグラフ */}
+        <section className="mb-6 bg-slate-800 rounded-xl p-4 shadow">
+          <h2 className="text-lg font-semibold mb-3">日別総ボリュームの推移</h2>
+          {chartData.length === 0 ? (
+            <p className="text-slate-400 text-sm">
+              まだグラフを表示するためのデータがありません。
+            </p>
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#cbd5f5" }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#cbd5f5" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#020617",
+                      border: "1px solid #334155",
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#e2e8f0" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="totalVolume"
+                    stroke="#38bdf8"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
 
         {loading ? (
           <p className="text-slate-400">読み込み中...</p>
