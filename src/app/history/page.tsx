@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type WorkoutEntry = {
   id: string;
@@ -21,9 +22,14 @@ type DailySummary = {
 };
 
 export default function History() {
+  const router = useRouter();
+
   const [entries, setEntries] = useState<WorkoutEntry[]>([]);
   const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   // 編集用 state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -38,14 +44,34 @@ export default function History() {
 
   useEffect(() => {
     const fetchEntries = async () => {
-      const { data, error } = await supabase
-        .from("workout_entries")
-        .select("*")
-        .order("date", { ascending: false });
+      // まずログインチェック
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
       if (error) {
-        console.error(error);
+        console.error("Error getting user:", error);
+      }
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setUserId(user.id);
+
+      // ログインユーザーのデータだけを取得
+      const { data, error: selectError } = await supabase
+        .from("workout_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false });
+
+      if (selectError) {
+        console.error(selectError);
         setLoading(false);
+        setAuthChecking(false);
         return;
       }
 
@@ -53,10 +79,11 @@ export default function History() {
       setEntries(typed);
       setDailySummaries(groupByDate(typed));
       setLoading(false);
+      setAuthChecking(false);
     };
 
     fetchEntries();
-  }, []);
+  }, [router]);
 
   const groupByDate = (entries: WorkoutEntry[]): DailySummary[] => {
     const map = new Map<string, WorkoutEntry[]>();
@@ -130,7 +157,8 @@ export default function History() {
     const { error } = await supabase
       .from("workout_entries")
       .update(updated)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId); // 念のため自分のデータだけ更新
 
     setSavingId(null);
 
@@ -161,7 +189,8 @@ export default function History() {
     const { error } = await supabase
       .from("workout_entries")
       .delete()
-      .eq("id", entry.id);
+      .eq("id", entry.id)
+      .eq("user_id", userId); // 自分のデータに限定
 
     setDeletingId(null);
 
@@ -180,6 +209,15 @@ export default function History() {
     }
   };
 
+  // 認証確認中
+  if (authChecking) {
+    return (
+      <main className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center">
+        <p>認証確認中...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
       {/* Header */}
@@ -190,7 +228,7 @@ export default function History() {
           </Link>
           <nav className="space-x-4 text-sm">
             <Link href="/" className="hover:text-sky-400">
-              Today
+              Home
             </Link>
             <span className="text-sky-400">History</span>
           </nav>
@@ -199,22 +237,31 @@ export default function History() {
 
       {/* Content */}
       <div className="max-w-xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">過去のトレーニング履歴</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          過去のトレーニング履歴
+        </h1>
 
         {loading ? (
           <p className="text-slate-400">読み込み中...</p>
         ) : dailySummaries.length === 0 ? (
-          <p className="text-slate-400">まだDBにトレーニング記録がありません。</p>
+          <p className="text-slate-400">
+            まだDBにトレーニング記録がありません。
+          </p>
         ) : (
           <div className="space-y-4">
             {dailySummaries.map((day) => (
-              <div key={day.date} className="bg-slate-800 rounded-xl p-4 shadow">
+              <div
+                key={day.date}
+                className="bg-slate-800 rounded-xl p-4 shadow"
+              >
                 {/* 日付 & ボリューム */}
                 <div className="flex justify-between items-baseline mb-2">
                   <div className="font-semibold text-lg">{day.date}</div>
                   <div className="text-right">
                     <div className="text-sm text-slate-300">総ボリューム</div>
-                    <div className="text-2xl font-bold">{day.totalVolume} kg</div>
+                    <div className="text-2xl font-bold">
+                      {day.totalVolume} kg
+                    </div>
                   </div>
                 </div>
 
@@ -226,14 +273,19 @@ export default function History() {
                     // 編集モード
                     if (isEditing) {
                       return (
-                        <li key={s.id} className="bg-slate-900/40 rounded-lg px-3 py-2 space-y-2">
+                        <li
+                          key={s.id}
+                          className="bg-slate-900/40 rounded-lg px-3 py-2 space-y-2"
+                        >
                           <div className="grid grid-cols-4 gap-2">
                             <div className="col-span-2">
                               <label className="block text-xs mb-1">種目</label>
                               <input
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editExercise}
-                                onChange={(e) => setEditExercise(e.target.value)}
+                                onChange={(e) =>
+                                  setEditExercise(e.target.value)
+                                }
                               />
                             </div>
 
@@ -245,7 +297,9 @@ export default function History() {
                                 value={editWeight}
                                 onChange={(e) =>
                                   setEditWeight(
-                                    e.target.value === "" ? "" : Number(e.target.value)
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value)
                                   )
                                 }
                               />
@@ -259,21 +313,27 @@ export default function History() {
                                 value={editReps}
                                 onChange={(e) =>
                                   setEditReps(
-                                    e.target.value === "" ? "" : Number(e.target.value)
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value)
                                   )
                                 }
                               />
                             </div>
 
                             <div>
-                              <label className="block text-xs mb-1">セット</label>
+                              <label className="block text-xs mb-1">
+                                セット
+                              </label>
                               <input
                                 type="number"
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editSetNumber}
                                 onChange={(e) =>
                                   setEditSetNumber(
-                                    e.target.value === "" ? "" : Number(e.target.value)
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value)
                                   )
                                 }
                               />
@@ -302,10 +362,15 @@ export default function History() {
 
                     // 通常表示モード
                     return (
-                      <li key={s.id} className="flex justify-between items-center text-slate-200">
+                      <li
+                        key={s.id}
+                        className="flex justify-between items-center text-slate-200"
+                      >
                         <div>
                           <div className="font-semibold">{s.exercise}</div>
-                          <div className="text-slate-300 text-xs">{s.set_number}セット目</div>
+                          <div className="text-slate-300 text-xs">
+                            {s.set_number}セット目
+                          </div>
                         </div>
 
                         <div className="text-right">

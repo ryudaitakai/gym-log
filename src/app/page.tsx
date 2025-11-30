@@ -1,10 +1,10 @@
 // app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-
+import { useRouter } from "next/navigation";
 
 type TrainingSet = {
   id: number;
@@ -25,59 +25,104 @@ export default function Home() {
   const [sets, setSets] = useState<TrainingSet[]>([]);
   const [nextId, setNextId] = useState(1);
 
-    const handleAddSet = async () => {
-      if (!date) {
-        alert("日付を入力してください");
-        return;
-      }
-      if (!exercise || weight === "" || reps === "" || setNumber === "") {
-        alert("種目名・重量・回数・セット数を全部入力してね！");
-        return;
-      }
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
-      const currentDate = date;
-
-      // ① まずローカルの state に追加（画面の即時反映用）
-      const newSet: TrainingSet = {
-        id: nextId,
-        exercise,
-        weight: Number(weight),
-        reps: Number(reps),
-        setNumber: Number(setNumber),
-      };
-
-      setSets((prev) => [...prev, newSet]);
-      setNextId((prev) => prev + 1);
-
-      // 入力欄リセット（UX的に先にリセットしちゃう）
-      setWeight("");
-      setReps("");
-      setSetNumber("");
-
-      // ② Supabase に INSERT
-      const { error } = await supabase.from("workout_entries").insert([
-        {
-          date: date,
-          exercise: exercise,
-          weight: Number(weight),
-          reps: Number(reps),
-          set_number: Number(setNumber),
-          // user_id は今は null のままでOK（あとで認証つけるなら使う）
-        },
-      ]);
+  // 🔐 認証チェック（未ログインなら /login にリダイレクト）
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
       if (error) {
-        console.error(error);
-        alert("DBへの保存に失敗しました… コンソールを確認してください");
-        // ここで本当はローカルの state からも取り消したいが、今回は簡略化
+        console.error("Error getting user:", error);
       }
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setUserId(user.id);
+      setAuthChecking(false);
     };
 
+    checkAuth();
+  }, [router]);
+
+  const handleAddSet = async () => {
+    if (!userId) {
+      alert("ログイン情報が取得できませんでした。もう一度ログインしてください。");
+      router.push("/login");
+      return;
+    }
+
+    if (!date) {
+      alert("日付を入力してください");
+      return;
+    }
+    if (!exercise || weight === "" || reps === "" || setNumber === "") {
+      alert("種目名・重量・回数・セット数を全部入力してね！");
+      return;
+    }
+
+    const currentDate = date;
+    const currentWeight = Number(weight);
+    const currentReps = Number(reps);
+    const currentSetNumber = Number(setNumber);
+
+    // ① まずローカルの state に追加（画面の即時反映用）
+    const newSet: TrainingSet = {
+      id: nextId,
+      exercise,
+      weight: currentWeight,
+      reps: currentReps,
+      setNumber: currentSetNumber,
+    };
+
+    setSets((prev) => [...prev, newSet]);
+    setNextId((prev) => prev + 1);
+
+    // 入力欄リセット
+    setWeight("");
+    setReps("");
+    setSetNumber("");
+
+    // ② Supabase に INSERT（user_id も保存）
+    const { error } = await supabase.from("workout_entries").insert([
+      {
+        date: currentDate,
+        exercise: exercise,
+        weight: currentWeight,
+        reps: currentReps,
+        set_number: currentSetNumber,
+        user_id: userId,
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("DBへの保存に失敗しました… コンソールを確認してください");
+      // TODO: 本当はローカル state からも取り消したほうがきれい
+    }
+  };
 
   const totalVolume = sets.reduce(
     (sum, s) => sum + s.weight * s.reps,
     0
   );
+
+  // 認証確認中の画面
+  if (authChecking) {
+    return (
+      <main className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center">
+        <p>認証確認中...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
@@ -85,16 +130,10 @@ export default function Home() {
         <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="text-lg font-bold">Gym Log</div>
           <nav className="space-x-4 text-sm">
-            <Link
-              href="/"
-              className="hover:text-sky-400"
-            >
+            <Link href="/" className="hover:text-sky-400">
               Home
             </Link>
-            <Link
-              href="/history"
-              className="hover:text-sky-400"
-            >
+            <Link href="/history" className="hover:text-sky-400">
               History
             </Link>
           </nav>
@@ -182,10 +221,12 @@ export default function Home() {
           </div>
         </section>
 
-        <Link href="/history" className="underline text-sky-400 block text-center mt-6">
+        <Link
+          href="/history"
+          className="underline text-sky-400 block text-center mt-6"
+        >
           過去の履歴を見る
         </Link>
-
       </div>
     </main>
   );
