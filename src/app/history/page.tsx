@@ -29,6 +29,7 @@ export default function History() {
   const [loading, setLoading] = useState(true);
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
 
   // 編集用 state
@@ -60,6 +61,7 @@ export default function History() {
       }
 
       setUserId(user.id);
+      setUserEmail(user.email ?? null);
 
       // ログインユーザーのデータだけを取得
       const { data, error: selectError } = await supabase
@@ -226,12 +228,17 @@ export default function History() {
           <Link href="/" className="text-lg font-bold">
             Gym Log
           </Link>
-          <nav className="space-x-4 text-sm">
-            <Link href="/" className="hover:text-sky-400">
-              Home
-            </Link>
-            <span className="text-sky-400">History</span>
-          </nav>
+          <div className="flex items-center gap-3">
+            {userEmail && (
+              <span className="text-xs text-slate-300">{userEmail}</span>
+            )}
+            <nav className="space-x-4 text-sm">
+              <Link href="/" className="hover:text-sky-400">
+                Home
+              </Link>
+              <span className="text-sky-400">History</span>
+            </nav>
+          </div>
         </div>
       </header>
 

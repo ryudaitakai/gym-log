@@ -27,6 +27,7 @@ export default function Home() {
 
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
 
   // 🔐 認証チェック（未ログインなら /login にリダイレクト）
@@ -47,6 +48,7 @@ export default function Home() {
       }
 
       setUserId(user.id);
+      setUserEmail(user.email ?? null);
       setAuthChecking(false);
     };
 
@@ -129,14 +131,22 @@ export default function Home() {
       <header className="bg-slate-800 border-b border-slate-700">
         <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="text-lg font-bold">Gym Log</div>
-          <nav className="space-x-4 text-sm">
-            <Link href="/" className="hover:text-sky-400">
-              Home
-            </Link>
-            <Link href="/history" className="hover:text-sky-400">
-              History
-            </Link>
-          </nav>
+
+          <div className="flex items-center gap-3">
+            {/* ログイン中ユーザーのメールアドレス表示 */}
+            {userEmail && (
+              <span className="text-xs text-slate-300">{userEmail}</span>
+            )}
+
+            <nav className="space-x-4 text-sm">
+              <Link href="/" className="hover:text-sky-400">
+                Home
+              </Link>
+              <Link href="/history" className="hover:text-sky-400">
+                History
+              </Link>
+            </nav>
+          </div>
         </div>
       </header>
 
