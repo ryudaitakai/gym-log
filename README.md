@@ -1,36 +1,196 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💪 Gym Log – Workout Tracking App  
+**Next.js × Supabase × TypeScript** で構築した、  
+筋トレの「日々の記録」「履歴」「編集」「削除」「可視化」ができるフルスタック Web アプリです。
 
-## Getting Started
+ログイン機能・データ永続化・グラフ表示を含む本格的な構成で、  
+個人用トレーニングログとしても、技術デモとしても活用できます。
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🖥️ 主要リンク
+
+- **Live Demo:** https://gym-log-three.vercel.app/
+- **Repository:** https://github.com/ryudaitakai/gym-log
+
+---
+
+# ✨ Features（できること）
+
+### ✔ 今日のトレーニング記録  
+- 種目／重量／回数／セット数／日付を入力  
+- 今日の記録を一覧表示  
+- 今日の総ボリューム（重量 × 回数）を自動計算
+
+### ✔ 過去の履歴（History）
+- 日付ごとにまとめて表示（Daily Summary）
+- 各日の総ボリュームを表示
+- セット単位の編集／削除が可能
+- **日別総ボリューム推移を折れ線グラフで可視化**
+
+### ✔ ログイン／ログアウト（Supabase Auth）
+- Email＋Password で認証  
+- 開発用に **実在しないメールアドレスでも登録OK**  
+- ログイン中ユーザーのメールアドレスをヘッダーに表示  
+- ログアウトボタンで即サインアウト
+
+### ✔ データ永続化（Supabase）
+- PostgreSQL ベースの Supabase を使用
+- `workout_entries` テーブルに記録を保存
+- 各ユーザーの記録を `user_id` で紐付け  
+- 他人の記録は見えない構造
+
+---
+
+# 🧱 Architecture（アーキテクチャ）
+
+本アプリでは、**3層アーキテクチャ**を意識した構成を採用しています。
+
+```
+Presentation（UI）
+↓
+Application（Services / UseCase）
+↓
+Domain（Logic）＋ Infrastructure（Supabase）
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✔ Presentation Layer（UI 層）
+Next.js App Router のページコンポーネント：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+app/page.tsx // Home
+app/history/page.tsx
+app/login/page.tsx
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+役割：
 
-## Learn More
+- 状態管理 (`useState`, `useEffect`)
+- 入力フォームの制御
+- Application 層のサービスを呼び出す
+- 認証状態チェック & ルーティング
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## ✔ Application Layer（サービス / ユースケース）
+`features/workout/services.ts`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+UI と DB の仲介役として、
 
-## Deploy on Vercel
+- 今日の記録取得 `fetchTodayEntries`
+- 新規登録 `addWorkoutEntry`
+- すべての記録取得 `fetchEntriesByUser`
+- 編集 `updateWorkoutEntry`
+- 削除 `deleteWorkoutEntry`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+などの「ユースケース」をここに集約。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> UI から Supabase を直接叩かず、  
+> データアクセスの窓口を1カ所に集めることで可読性と再利用性を向上。
+
+---
+
+## ✔ Domain Layer（ドメインロジック）
+`features/workout/utils.ts`
+
+- `groupByDate()` 日別のログ集計ロジック  
+- 合計ボリュームなどの計算処理  
+- DTO（DBデータ）を UI に最適化する変換
+
+ビジネスルールやロジックを UI から分離。
+
+---
+
+## ✔ Infrastructure Layer（インフラ層）
+`lib/supabaseClient.ts`
+
+- Supabase クライアント作成
+- 認証・DB アクセスの基盤となる層
+
+> Application 層は「Supabase を使うこと」を知らない構造にできる。
+
+---
+
+# 🔧 Technology Stack（技術スタック）
+
+| 分類 | 技術 |
+|------|------|
+| フロントエンド | **Next.js 14 (App Router)**, **React**, **TypeScript** |
+| スタイリング | Tailwind CSS |
+| 認証 / DB / API | **Supabase** (PostgreSQL + Auth) |
+| ホスティング | Vercel |
+| グラフ描画 | Recharts |
+| アーキテクチャ | 3層アーキテクチャ（UI / Application / Domain+Infra） |
+
+---
+
+# 📊 Database Schema
+
+Supabase の `workout_entries` テーブル：
+
+```sql
+id uuid primary key
+user_id uuid not null
+date date not null
+exercise text not null
+weight numeric not null
+reps int not null
+set_number int not null
+```
+
+ユーザーごとにデータを分離するため、
+すべてのデータは `user_id` と紐づいています。
+
+# 🏗️ Project Structure
+
+``` txt
+src/
+  app/
+    page.tsx            # Home: 今日の記録・入力フォーム
+    history/page.tsx    # 履歴・グラフ・編集・削除
+    login/page.tsx      # ログイン/新規登録
+  features/
+    workout/
+      types.ts          # ドメインモデル (WorkoutEntry など)
+      utils.ts          # 日別サマリーや計算ロジック
+      services.ts       # ユースケース/アプリケーション層
+  lib/
+    supabaseClient.ts   # Supabase クライアント（インフラ層）
+```
+
+# 🚀 Setup（ローカル起動）
+``` bash
+git clone https://github.com/your/repo.git
+cd repo
+npm install
+```
+環境変数を設定：
+
+``` ini
+NEXT_PUBLIC_SUPABASE_URL=xxxx
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxx
+```
+
+ローカル起動：
+
+``` bash
+npm run dev
+```
+
+# 📦 Deploy
+Vercel にデプロイ：
+
+1. GitHub リポジトリを Vercel と連携
+2. Environment Variables に Supabase URL / Key を設定
+3. Deploy ボタンで公開完了
+
+# ✨ 今後の拡張案（アピールポイント）
+- 種目をテンプレート化（プリセット登録機能）
+- 前回の記録を自動で呼び出し
+- 体重の入力 → トータル Volume per BodyWeight の計算
+- ページのログを SSR 対応し高速化
+
+# 🙋‍♂️ Author
+開発者: ryudai.takai
+
+Twitter/GitHub: https://github.com/ryudaitakai
+
