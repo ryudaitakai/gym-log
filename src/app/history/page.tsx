@@ -25,13 +25,16 @@ export default function History() {
   const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 編集用のstate
+  // 編集用 state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editExercise, setEditExercise] = useState("");
   const [editWeight, setEditWeight] = useState<number | "">("");
   const [editReps, setEditReps] = useState<number | "">("");
   const [editSetNumber, setEditSetNumber] = useState<number | "">("");
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  // 削除中 state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -59,11 +62,8 @@ export default function History() {
     const map = new Map<string, WorkoutEntry[]>();
 
     for (const e of entries) {
-      const key = e.date;
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-      map.get(key)!.push(e);
+      if (!map.has(e.date)) map.set(e.date, []);
+      map.get(e.date)!.push(e);
     }
 
     const summaries: DailySummary[] = [];
@@ -73,6 +73,7 @@ export default function History() {
         (sum, s) => sum + s.weight * s.reps,
         0
       );
+
       summaries.push({
         date,
         totalVolume,
@@ -103,7 +104,7 @@ export default function History() {
     setEditSetNumber("");
   };
 
-  // 保存処理
+  // 編集保存
   const saveEdit = async () => {
     if (!editingId) return;
     if (
@@ -112,7 +113,7 @@ export default function History() {
       editReps === "" ||
       editSetNumber === ""
     ) {
-      alert("種目名・重量・回数・セット数をすべて入力してください。");
+      alert("すべての項目を入力してください。");
       return;
     }
 
@@ -139,19 +140,49 @@ export default function History() {
       return;
     }
 
-    // ローカルのentriesも更新
     const newEntries = entries.map((e) =>
       e.id === id ? { ...e, ...updated } : e
     );
+
+    setEntries(newEntries);
+    setDailySummaries(groupByDate(newEntries));
+    cancelEdit();
+  };
+
+  // 削除処理
+  const deleteEntry = async (entry: WorkoutEntry) => {
+    const ok = window.confirm(
+      `本当に削除しますか？\n${entry.date} ${entry.exercise} ${entry.weight}kg × ${entry.reps}回`
+    );
+    if (!ok) return;
+
+    setDeletingId(entry.id);
+
+    const { error } = await supabase
+      .from("workout_entries")
+      .delete()
+      .eq("id", entry.id);
+
+    setDeletingId(null);
+
+    if (error) {
+      console.error(error);
+      alert("削除に失敗しました。");
+      return;
+    }
+
+    const newEntries = entries.filter((e) => e.id !== entry.id);
     setEntries(newEntries);
     setDailySummaries(groupByDate(newEntries));
 
-    cancelEdit();
+    if (editingId === entry.id) {
+      cancelEdit();
+    }
   };
 
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100">
-      {/* ヘッダー */}
+      {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700">
         <div className="max-w-xl mx-auto px-4 py-3 flex justify-between items-center">
           <Link href="/" className="text-lg font-bold">
@@ -166,37 +197,24 @@ export default function History() {
         </div>
       </header>
 
-      {/* コンテンツ */}
+      {/* Content */}
       <div className="max-w-xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">
-          過去のトレーニング履歴
-        </h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">過去のトレーニング履歴</h1>
 
         {loading ? (
           <p className="text-slate-400">読み込み中...</p>
         ) : dailySummaries.length === 0 ? (
-          <p className="text-slate-400">
-            まだDBにトレーニング記録がありません。
-          </p>
+          <p className="text-slate-400">まだDBにトレーニング記録がありません。</p>
         ) : (
           <div className="space-y-4">
             {dailySummaries.map((day) => (
-              <div
-                key={day.date}
-                className="bg-slate-800 rounded-xl p-4 shadow"
-              >
-                {/* 日付 & 総ボリューム */}
+              <div key={day.date} className="bg-slate-800 rounded-xl p-4 shadow">
+                {/* 日付 & ボリューム */}
                 <div className="flex justify-between items-baseline mb-2">
-                  <div className="font-semibold text-lg">
-                    {day.date}
-                  </div>
+                  <div className="font-semibold text-lg">{day.date}</div>
                   <div className="text-right">
-                    <div className="text-sm text-slate-300">
-                      総ボリューム
-                    </div>
-                    <div className="text-2xl font-bold">
-                      {day.totalVolume} kg
-                    </div>
+                    <div className="text-sm text-slate-300">総ボリューム</div>
+                    <div className="text-2xl font-bold">{day.totalVolume} kg</div>
                   </div>
                 </div>
 
@@ -205,72 +223,57 @@ export default function History() {
                   {day.sets.map((s) => {
                     const isEditing = s.id === editingId;
 
+                    // 編集モード
                     if (isEditing) {
                       return (
-                        <li
-                          key={s.id}
-                          className="flex flex-col gap-2 bg-slate-900/40 rounded-lg px-3 py-2"
-                        >
-                          <div className="flex justify-between gap-2">
-                            <div className="flex-1">
-                              <label className="block text-xs mb-1">
-                                種目
-                              </label>
+                        <li key={s.id} className="bg-slate-900/40 rounded-lg px-3 py-2 space-y-2">
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="col-span-2">
+                              <label className="block text-xs mb-1">種目</label>
                               <input
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editExercise}
-                                onChange={(e) =>
-                                  setEditExercise(e.target.value)
-                                }
+                                onChange={(e) => setEditExercise(e.target.value)}
                               />
                             </div>
-                            <div className="w-20">
-                              <label className="block text-xs mb-1">
-                                重量
-                              </label>
+
+                            <div>
+                              <label className="block text-xs mb-1">重量</label>
                               <input
                                 type="number"
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editWeight}
                                 onChange={(e) =>
                                   setEditWeight(
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value)
+                                    e.target.value === "" ? "" : Number(e.target.value)
                                   )
                                 }
                               />
                             </div>
-                            <div className="w-20">
-                              <label className="block text-xs mb-1">
-                                回数
-                              </label>
+
+                            <div>
+                              <label className="block text-xs mb-1">回数</label>
                               <input
                                 type="number"
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editReps}
                                 onChange={(e) =>
                                   setEditReps(
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value)
+                                    e.target.value === "" ? "" : Number(e.target.value)
                                   )
                                 }
                               />
                             </div>
-                            <div className="w-24">
-                              <label className="block text-xs mb-1">
-                                セット
-                              </label>
+
+                            <div>
+                              <label className="block text-xs mb-1">セット</label>
                               <input
                                 type="number"
                                 className="w-full rounded-md px-2 py-1 bg-slate-700 border border-slate-600 text-xs"
                                 value={editSetNumber}
                                 onChange={(e) =>
                                   setEditSetNumber(
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value)
+                                    e.target.value === "" ? "" : Number(e.target.value)
                                   )
                                 }
                               />
@@ -284,6 +287,7 @@ export default function History() {
                             >
                               キャンセル
                             </button>
+
                             <button
                               onClick={saveEdit}
                               disabled={savingId === s.id}
@@ -298,28 +302,33 @@ export default function History() {
 
                     // 通常表示モード
                     return (
-                      <li
-                        key={s.id}
-                        className="flex justify-between items-center text-slate-200"
-                      >
+                      <li key={s.id} className="flex justify-between items-center text-slate-200">
                         <div>
-                          <div className="font-semibold">
-                            {s.exercise}
-                          </div>
-                          <div className="text-slate-300 text-xs">
-                            {s.set_number}セット目
-                          </div>
+                          <div className="font-semibold">{s.exercise}</div>
+                          <div className="text-slate-300 text-xs">{s.set_number}セット目</div>
                         </div>
+
                         <div className="text-right">
                           <div className="text-slate-300 text-sm">
                             {s.weight}kg × {s.reps}回
                           </div>
-                          <button
-                            onClick={() => startEdit(s)}
-                            className="mt-1 text-xs text-sky-400 hover:text-sky-300 underline"
-                          >
-                            編集
-                          </button>
+
+                          <div className="mt-1 flex gap-2 justify-end text-xs">
+                            <button
+                              onClick={() => startEdit(s)}
+                              className="text-sky-400 hover:text-sky-300 underline"
+                            >
+                              編集
+                            </button>
+
+                            <button
+                              onClick={() => deleteEntry(s)}
+                              disabled={deletingId === s.id}
+                              className="text-red-400 hover:text-red-300 underline disabled:opacity-60"
+                            >
+                              {deletingId === s.id ? "削除中..." : "削除"}
+                            </button>
+                          </div>
                         </div>
                       </li>
                     );
